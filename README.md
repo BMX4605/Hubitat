@@ -1,5 +1,4 @@
 # Hubitat
-README.md
 I am new to Hubitat. I started using various devices and started to learn how to interact with them and control them.
 
 as a result, I started creating drivers for some of the devices and dashboards that I use and began sharing them here based on code I put together/adapted from other sources.
