@@ -1,0 +1,17 @@
+One of the devices was an Ikea IKEA Styrbar (Remote Control N2) which allows you to turn on/off/Dimmer rise/Dimmer 
+reduce using the top/bottom buttons, and go through a list of lights you want to control using the side buttons.  
+I could not control this device using the built-in Hubitat drivers and began looking around the came across 
+@akafester driver code.  After looking at the code and running it I made changes to accommodate the discrepancies 
+for the side buttons and made other changes to ensure all buttons worked and report correctly.  
+Installation:
+-	Copy the code into a new driver page (under Developer tools, Drivers code) and save
+-	Put the device in discovery mode according to the device manual instructions 
+      (pressing the link button under the back cover 4 times quickly)
+-	Under Devices, add a new Zigbee Device and name it after it is found.
+-	Choose “IKEA Styrbar” as the type for the device type and save.
+-	You have successfully installed a new device
+How to use
+-	You can use a variety of ways to control the device.
+-	My setup is as follows:
+      o Add a button controller and create push and held button triggers for buttons 1 and 3 (up, down) 
+        and instruct within each as to turn on/off with push, and dim up/DN with held triggers
