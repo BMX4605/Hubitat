@@ -2,6 +2,9 @@
 *  Ikea Tradfri Motion Sensor
 *  manufacturer: "IKEA of Sweden", model: "TRADFRI motion sensor"
 *
+*  ******* Not intended for security applications since the device has a built in delay of close to 1 minute  *******
+*  ******* (I believe it was designed for controlling lights) *******
+*
 *  Copyright 2023 Ben Mohseni
 *
 *  Licensed under the Apache License, Version 2.0 (the "License"); you may not use this file except
