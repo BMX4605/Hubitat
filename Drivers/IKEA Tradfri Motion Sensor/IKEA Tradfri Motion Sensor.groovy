@@ -2,6 +2,12 @@
 *  Ikea Tradfri Motion Sensor
 *  manufacturer: "IKEA of Sweden", model: "TRADFRI motion sensor"
 *
+*  Important Note:  This code has been tested and work successfully only with the following firmware:
+*			firmwareMT: 117C-11C8-24040005
+*			manufacturer: IKEA of Sweden
+*			model: TRADFRI motion sensor
+*			softwareBuild: 24040005
+*
 *  ******* Not intended for security applications since the device has a built in delay of close to 1 minute  *******
 *  ******* (I believe it was designed for controlling lights) *******
 *
@@ -28,6 +34,9 @@
 *    2023-02-26  Ben Mohseni   version 0.1.0
 *                              -initial version to detect motion and an attempt to report on battery
 *                              -review, contribute, correct, etc., but notify and share code)
+*
+*				version 0.1.1
+*				Added Firmware version to the comment section
 *
 */
 
