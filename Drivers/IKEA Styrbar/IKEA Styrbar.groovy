@@ -38,15 +38,19 @@
 *
 *    Date        Who           What
 *    ----        ---           ----
-*    2023-02-24  Ben Mohseni	 version 0.1.0
+*    2021-03-11  akafester     version 0.1.0 Initial release
+*    2023-02-24  Ben Mohseni   version 0.1.1 updated code from previous mentioned authors
 *                              - correctly realize button actions when pushed, held, or released
 *                              - some of the features that needs to be researched and added:
-*                              - Battery %
-*                              - possibly writing an app to traverse through lights/switches/dimmers 
-*                                that one may want to turn off/on/control using the side
-*                                buttons (2, 4), or control one color light/switch/dimmer
-*                                to control the color change using those buttons
-*                                (feel free to review, contribute, correct, etc., but notify and share code)
+*                                + Additional cleanup needed
+*                                + Battery % full
+*                                + possibly writing an app to traverse through lights/switches/dimmers 
+*                                  that one may want to turn off/on/control using the side
+*                                  buttons (2, 4), or control one color light/switch/dimmer
+*                                  to control the color change using those buttons
+*                                  (feel free to review, contribute, correct, etc., but notify and share code)
+*    2023-10-17  Ben Mohseni   version 0.1.2
+*                              - further correct the behavior of buttons 2 or 4 held/released.
 *
 */
 
@@ -113,17 +117,21 @@ def refresh() {
         cmds += zigbee.readAttribute(0x0001, 0x0020, [:], delay=200)     // TODO: check - battery voltage
         cmds += zigbee.readAttribute(0xFCC0, 0x0102, [mfgCode: 0x115F], delay=200)
     if (logEnable) log.debug "$cmds"
-    sendZigbeeCommands( cmds )   
+    sendZigbeeCommands( cmds ) 
+    atomicState.releaseButton = 0
+    atomicState.releasecalled = 0
     return cmds
 }
 
 // Parse incoming device messages to generate events
 def parse(String description) {
     Map map = [:]
-    if (atomicState.releasecalled == null) atomicState.releasecalled = 0
+    //if (atomicState.releasecalled == null) atomicState.releasecalled = 0
+    //if (logEnable) log.debug "====================================================="
     if (logEnable) log.debug "Parse description $description"
     if (description?.startsWith('catchall:')) {
         // call parseCatchAllMessage to parse the catchall message received
+        //if (logEnable) log.debug "Going into Parse CatchAll"
         map = parseCatchAllMessage(description)
     } else if (description?.startsWith('read')) {
         // call parseReadMessage to parse the read message received
@@ -132,6 +140,7 @@ def parse(String description) {
         if (logEnable) log.debug "Unknown message received: $description"
     }
     //return event unless map is not set
+    //if (logEnable) log.debug "Going out of parse"
     return map ? createEvent(map) : null
 }
 
@@ -139,6 +148,7 @@ private Map parseCatchAllMessage(String description) {
   // Create a map from the raw zigbee message to make parsing more intuitive
   def msg = zigbee.parse(description)
   if (logEnable) log.debug msg
+  if (logEnable) log.debug "clusterId= "+msg.clusterId+", Msg.command= "+msg.command+", atomicState.releasecalled= "+atomicState.releasecalled
   switch(msg.clusterId) {
     case 1:
       // call getBatteryResult method to parse battery message into event map
@@ -146,41 +156,57 @@ private Map parseCatchAllMessage(String description) {
       def result = getBatteryResult(Integer.parseInt(msg.value, 16))
       break
     case 5:
+      //if (logEnable) log.debug "Side buttons 2 or 4 pressed/Held/Released"
       switch(msg.command) {
         case 7: // Side buttons 2 or 4 pressed
-          if (atomicState.releasecalled < 2) {
-            def button = (msg.data == [0x01,0x01,0x0D,0x00] ? 2 : 4)
+          //if (logEnable) log.debug "Side buttons 2 or 4 pressed"
+            def button = 0
+            if (msg.data == [0x01,0x01,0x0D,0x00])
+              button = 2
+            else if (msg.data == [0x00,0x01,0x0D,0x00])
+              button = 4
+            else 
+              button = 0
+            //if (logEnable) log.debug button
+            Map result = [:]
+            if (button > 0) {
+              result = [
+                name: 'button',
+                value: 'pushed',
+                data: [buttonNumber: button],
+                descriptionText: "$device.displayName button $button was pushed",
+                isStateChange: true
+              ]
+              push(button)
+              if (txtEnable) log.debug "Parse returned ${result?.descriptionText}"
+              return result
+            }
+          break
+        case 8: // Side buttons 2 or 4 held
+          //if (logEnable) log.debug "Side buttons 2 or 4 held"
+            def button = 0
+            if (msg.data == [0x01,0x0D,0x00])
+              button = 2
+            else if (msg.data == [0x00,0x0D,0x00])
+              button = 4
+            else 
+              button = 0
+            //if (logEnable) log.debug button
             Map result = [:]
             result = [
               name: 'button',
-              value: 'pushed',
+              value: 'held',
               data: [buttonNumber: button],
-              descriptionText: "$device.displayName button $button was pushed",
+              descriptionText: "$device.displayName button $button was held",
               isStateChange: true
             ]
-            push(button)
+            hold(button)
             if (txtEnable) log.debug "Parse returned ${result?.descriptionText}"
             return result
-          }
-          break
-        case 8: // Side buttons 2 or 4 held
-          def button = (msg.data == [0x01,0x0d,0x00] ? 2 : 4)
-          atomicState.releaseButton = (msg.data == [0x01,0x0d,0x00] ? 2 : 4)
-          atomicState.releasecalled = 0
-          Map result = [:]
-          result = [
-            name: 'button',
-            value: 'held',
-            data: [buttonNumber: button],
-            descriptionText: "$device.displayName button $button was held",
-            isStateChange: true
-          ]
-          hold(button)
-          if (txtEnable) log.debug "Parse returned ${result?.descriptionText}"
-          return result
           break
         case 9: // Side buttons 2 or 4 released
-          def button = atomicState.releaseButton
+          //if (logEnable) log.debug "Side buttons 2 or 4 released"
+          def button = (msg.data == [0x01,0x01,0x0D,0x00] ? 2 : 4)
           Map result = [:]
           result = [
             name: 'button',
@@ -191,35 +217,37 @@ private Map parseCatchAllMessage(String description) {
           ]
           release(button)
           if (txtEnable) log.debug "Parse returned ${result?.descriptionText}"
-          atomicState.releasecalled = atomicState.releasecalled + 1 
+          if (atomicState.releasecalled < 1)
+            atomicState.releasecalled = 1
+          else
+            atomicState.releasecalled = 0  
           return result
           break
       }
       break
     case 6:
       //button 1 or 3 was pressed
-      if (atomicState.releasecalled < 2) {
-        def button = (msg.command == 1 ? 1 : 3)
-        Map result = [:]
-        result = [
-          name: 'button',
-          value: 'pushed',
-          data: [buttonNumber: button],
-          descriptionText: "$device.displayName button $button was pushed",
-          isStateChange: true
-        ]
-        push(button)
-        if (txtEnable) log.debug "Parse returned ${result?.descriptionText}"
-        return result
-      }
+      //if (logEnable) log.debug "buttons 1 or 3 pressed"
+      def button = (msg.command == 1 ? 1 : 3)
+      Map result = [:]
+      result = [
+        name: 'button',
+        value: 'pushed',
+        data: [buttonNumber: button],
+        descriptionText: "$device.displayName button $button was pushed",
+        isStateChange: true
+      ]
+      if (txtEnable) log.debug "Parse returned ${result?.descriptionText}"
+      if (atomicState.releasecalled < 1) push(button)
+      return result
       break
     case 8:
+      //button 1 or 3 was held or released
       switch(msg.command) {
         case 1: 
           //button 3 held
           def button = 3
           atomicState.releaseButton = 3
-          atomicState.releasecalled = 0
           Map result = [:]
           result = [
             name: 'button',
@@ -247,7 +275,6 @@ private Map parseCatchAllMessage(String description) {
           //button 1 held
           def button = 1
           atomicState.releaseButton = 1
-          atomicState.releasecalled = 0
           Map result = [:]
           result = [
             name: 'button',
@@ -272,7 +299,6 @@ private Map parseCatchAllMessage(String description) {
           ]
           release(button)
           if (txtEnable) log.debug "Parse returned ${result?.descriptionText}"
-          atomicState.releasecalled = atomicState.releasecalled + 1 
           return result
           break
       }
